@@ -9,7 +9,8 @@ import api from './api';
  */
 export const registerUser = async (name, email, password, role) => {
   const response = await api.post('/auth/register', { name, email, password, role });
-  return response.data; // { success, token, user: { id, name, email, role } }
+  // Backend returns { success, message, data: { user, token } }
+  return response.data.data; // { user: { id, name, email, role }, token }
 };
 
 /**
@@ -19,7 +20,8 @@ export const registerUser = async (name, email, password, role) => {
  */
 export const loginUser = async (email, password) => {
   const response = await api.post('/auth/login', { email, password });
-  return response.data; // { success, token, user: { id, name, email, role } }
+  // Backend returns { success, message, data: { user, token } }
+  return response.data.data; // { user: { id, name, email, role }, token }
 };
 
 /**

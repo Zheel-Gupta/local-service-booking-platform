@@ -11,8 +11,10 @@ import Home from './pages/customer/Home';
 import ServiceDetails from './pages/customer/ServiceDetails';
 import MyBookings from './pages/customer/MyBookings';
 
-// Provider Dashboard placeholder
+// Provider pages
 import ProviderDashboard from './pages/provider/ProviderDashboard';
+import ManageServices from './pages/provider/ManageServices';
+import ProviderBookings from './pages/provider/ProviderBookings';
 
 function App() {
   return (
@@ -58,6 +60,23 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/provider/services"
+            element={
+              <PrivateRoute allowedRoles={['provider']}>
+                <ManageServices />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/provider/bookings"
+            element={
+              <PrivateRoute allowedRoles={['provider']}>
+                <ProviderBookings />
+              </PrivateRoute>
+            }
+          />
+
 
           {/* ── Default / Fallback Redirect ────────────────────────────────── */}
           <Route path="*" element={<Navigate to="/login" replace />} />

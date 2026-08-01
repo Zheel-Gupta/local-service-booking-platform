@@ -4,12 +4,35 @@ import Footer from '../../components/common/Footer';
 import Loader from '../../components/common/Loader';
 import { getMyBookings, updateBookingStatus } from '../../services/bookingService';
 import { createReview } from '../../services/reviewService';
+import {
+  Calendar,
+  Clock,
+  Star,
+  BadgeCheck,
+  XCircle,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  User,
+  ShoppingBag
+} from 'lucide-react';
+
+/* ─── PLACEHOLDER CONSTANTS (Easily swap with real image URLs) ──────────────── */
+export const BOOKING_PROVIDER_PLACEHOLDERS = [
+  "https://placehold.co/150x150/E2E8F0/1E293B?text=John+Electrician",
+  "https://placehold.co/150x150/E2E8F0/1E293B?text=Mike+Plumber",
+  "https://placehold.co/150x150/E2E8F0/1E293B?text=Alex+Carpenter",
+  "https://placehold.co/150x150/E2E8F0/1E293B?text=Sam+Painter",
+];
+
+const TABS = ['Upcoming', 'Completed', 'Cancelled'];
 
 function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('Upcoming');
 
   // Review Modal state
   const [reviewModalBooking, setReviewModalBooking] = useState(null);
@@ -80,169 +103,218 @@ function MyBookings() {
     }
   };
 
-  // Status color badges
+  // Status color badges matching reference design
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'confirmed':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'completed':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'cancelled':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
-        return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+        return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
+  const getProviderAvatarUrl = (booking, index) => {
+    if (booking?.provider?.profileImage) return booking.provider.profileImage;
+    return BOOKING_PROVIDER_PLACEHOLDERS[index % BOOKING_PROVIDER_PLACEHOLDERS.length];
+  };
+
+  // Filter bookings based on activeTab
+  const filteredBookings = bookings.filter((b) => {
+    if (activeTab === 'Upcoming') return b.status === 'pending' || b.status === 'confirmed';
+    if (activeTab === 'Completed') return b.status === 'completed';
+    if (activeTab === 'Cancelled') return b.status === 'cancelled';
+    return true;
+  });
+
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8">
+        {/* Header & Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-extrabold text-white">My Bookings</h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Manage your service appointments and review completed bookings.
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">My Bookings</h1>
+            <p className="text-gray-500 text-sm mt-1 font-medium">
+              Manage your service appointments and track status.
             </p>
+          </div>
+
+          {/* Pill Tabs */}
+          <div className="flex items-center gap-1.5 p-1.5 bg-white border border-gray-200 rounded-2xl shadow-sm self-start sm:self-auto">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
           </div>
         </div>
 
+        {/* Action Banners */}
         {actionSuccess && (
-          <div className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-4 py-3 rounded-xl text-sm mb-6 flex items-center justify-between">
-            <span>{actionSuccess}</span>
-            <button onClick={() => setActionSuccess('')} className="text-emerald-400 font-bold">✕</button>
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-2xl text-sm font-medium mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{actionSuccess}</span>
+            </div>
+            <button onClick={() => setActionSuccess('')} className="text-emerald-700 font-bold hover:text-emerald-900">✕</button>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-500/20 border border-red-500/40 text-red-300 px-4 py-3 rounded-xl text-sm mb-6 flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError('')} className="text-red-400 font-bold">✕</button>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm font-medium mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError('')} className="text-red-700 font-bold hover:text-red-900">✕</button>
           </div>
         )}
 
         {loading ? (
-          <div className="py-20">
+          <div className="py-20 flex justify-center">
             <Loader size="lg" />
           </div>
-        ) : bookings.length === 0 ? (
-          <div className="bg-slate-800/40 border border-white/5 rounded-2xl p-12 text-center my-8">
-            <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+        ) : filteredBookings.length === 0 ? (
+          <div className="bg-white border border-gray-100 rounded-2xl p-12 text-center my-6 shadow-sm">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShoppingBag className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-1">No bookings found</h3>
-            <p className="text-slate-400 text-sm">
-              You haven't booked any services yet.
+            <h3 className="text-lg font-extrabold text-gray-900 mb-1">No bookings found</h3>
+            <p className="text-gray-500 text-sm font-medium">
+              No {activeTab.toLowerCase()} bookings available.
             </p>
           </div>
         ) : (
-          <div className="bg-slate-800/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-900/60 border-b border-white/10 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    <th className="py-4 px-6">Service</th>
-                    <th className="py-4 px-6">Provider</th>
-                    <th className="py-4 px-6">Date & Time</th>
-                    <th className="py-4 px-6">Status</th>
-                    <th className="py-4 px-6 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-sm">
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-white/5 transition">
-                      {/* Service name */}
-                      <td className="py-4 px-6 font-semibold text-white">
-                        {booking.service?.title || `Service #${booking.serviceId}`}
-                        <div className="text-xs font-normal text-slate-400">
-                          ${booking.service?.price}
-                        </div>
-                      </td>
+          <div className="space-y-4">
+            {filteredBookings.map((booking, index) => {
+              const providerAvatarUrl = getProviderAvatarUrl(booking, index);
 
-                      {/* Provider name */}
-                      <td className="py-4 px-6 text-slate-300">
-                        {booking.provider?.name || 'N/A'}
-                        <div className="text-xs text-slate-500">{booking.provider?.email}</div>
-                      </td>
+              return (
+                <div
+                  key={booking.id}
+                  className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Provider Photo Placeholder */}
+                    <img
+                      src={providerAvatarUrl}
+                      alt={booking.provider?.name || 'John Electrician'}
+                      className="w-14 h-14 rounded-2xl object-cover border border-gray-100 shadow-sm shrink-0"
+                    />
 
-                      {/* Date & Time slot */}
-                      <td className="py-4 px-6 text-slate-300">
-                        <div className="font-medium text-white">{booking.bookingDate}</div>
-                        <div className="text-xs text-slate-400">{booking.timeSlot}</div>
-                      </td>
-
-                      {/* Status badge */}
-                      <td className="py-4 px-6">
-                        <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full border capitalize ${getStatusBadge(booking.status)}`}>
+                    {/* Booking Info */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-base font-extrabold text-gray-900">
+                          {booking.provider?.name || 'John Electrician'}
+                        </h3>
+                        <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-50 shrink-0" />
+                        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${getStatusBadge(booking.status)}`}>
                           {booking.status}
                         </span>
-                      </td>
+                      </div>
 
-                      {/* Actions */}
-                      <td className="py-4 px-6 text-right">
-                        {booking.status === 'pending' && (
-                          <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg transition"
-                          >
-                            Cancel
-                          </button>
-                        )}
+                      <p className="text-xs font-semibold text-indigo-600 mb-2">
+                        {booking.service?.title || `Electrical Wiring`}
+                      </p>
 
-                        {booking.status === 'completed' && (
-                          <button
-                            onClick={() => {
-                              setReviewModalBooking(booking);
-                              setReviewError('');
-                              setRating(5);
-                              setComment('');
-                            }}
-                            className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1"
-                          >
-                            ⭐ Leave a Review
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
+                        <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                          {booking.bookingDate || '18 May 2024'}
+                        </span>
+                        <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
+                          <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                          {booking.timeSlot || '10:00 AM'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Price & Actions */}
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-0 border-gray-100 gap-3">
+                    <div className="text-right">
+                      <span className="text-xl font-extrabold text-gray-900">${booking.service?.price || '32.50'}</span>
+                    </div>
+
+                    <div>
+                      {booking.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancelBooking(booking.id)}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <XCircle className="w-4 h-4 text-rose-600" />
+                          Cancel
+                        </button>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <button
+                          onClick={() => {
+                            setReviewModalBooking(booking);
+                            setReviewError('');
+                            setRating(5);
+                            setComment('');
+                          }}
+                          className="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-extrabold px-3.5 py-2 rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                          Leave Review
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
 
       {/* Review Modal */}
       {reviewModalBooking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-white/20 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
             <button
               onClick={() => setReviewModalBooking(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-xl font-bold text-white mb-1">Leave a Review</h3>
-            <p className="text-slate-400 text-xs mb-6">
-              For: <span className="text-white font-medium">{reviewModalBooking.service?.title}</span>
+            <h3 className="text-xl font-extrabold text-gray-900 mb-0.5">Leave a Review</h3>
+            <p className="text-gray-500 text-xs mb-5 font-medium">
+              For: <span className="text-gray-900 font-bold">{reviewModalBooking.service?.title}</span>
             </p>
 
             {reviewError && (
-              <div className="bg-red-500/20 border border-red-500/30 text-red-300 text-xs p-3 rounded-lg mb-4">
-                {reviewError}
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-xl mb-4 font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{reviewError}</span>
               </div>
             )}
 
             <form onSubmit={handleReviewSubmit} className="space-y-5">
-              {/* Rating selection (1 to 5 stars) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 mb-2">
                   Rating (1 to 5 stars)
                 </label>
                 <div className="flex items-center gap-2">
@@ -251,23 +323,20 @@ function MyBookings() {
                       key={star}
                       type="button"
                       onClick={() => setRating(star)}
-                      className={`p-2 rounded-xl transition ${
+                      className={`p-2.5 rounded-xl transition-all cursor-pointer ${
                         star <= rating
-                          ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30 scale-105'
-                          : 'text-slate-600 bg-slate-800 border border-white/5'
+                          ? 'text-amber-500 bg-amber-50 border border-amber-200 scale-105 shadow-sm'
+                          : 'text-gray-300 bg-gray-50 border border-gray-100'
                       }`}
                     >
-                      <svg className="w-6 h-6 fill-current" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
+                      <Star className={`w-6 h-6 ${star <= rating ? 'fill-amber-400' : 'fill-transparent'}`} />
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Comment textarea */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-gray-700 mb-1.5">
                   Comment (Optional)
                 </label>
                 <textarea
@@ -275,15 +344,15 @@ function MyBookings() {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Describe your experience with this service provider..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setReviewModalBooking(null)}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-medium py-2.5 rounded-xl border border-white/10 transition"
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold py-2.5 rounded-xl border border-gray-200 transition"
                 >
                   Cancel
                 </button>
@@ -291,7 +360,7 @@ function MyBookings() {
                   id="submit-review-btn"
                   type="submit"
                   disabled={reviewLoading}
-                  className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm py-2.5 rounded-xl transition shadow-lg shadow-amber-600/30"
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-sm py-2.5 rounded-xl transition shadow-md shadow-amber-200 flex items-center justify-center"
                 >
                   {reviewLoading ? 'Submitting...' : 'Submit Review'}
                 </button>
