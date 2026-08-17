@@ -13,11 +13,22 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
 
+const allowedOrigins = [
+  'https://local-service-booking-platform.vercel.app',
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like Postman or mobile apps) or any localhost port
-    if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    // Allow requests with no origin (like Postman, mobile apps, or server-to-server)
+    if (!origin) return callback(null, true);
+
+    const isLocalhost = origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:');
+    const isAllowedOrigin = allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+
+    if (isLocalhost || isAllowedOrigin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
