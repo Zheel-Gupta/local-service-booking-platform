@@ -2,7 +2,7 @@
 
 A full-stack web application connecting local service providers (electricians, plumbers, cleaners, salons, etc.) with customers who need to book their services — built with the PERN stack.
 
-🔗 **Live Demo:** [Add your deployed link here once deployed]  
+🔗 **Live Demo:** [https://local-service-booking-platform.vercel.app/]  
 📂 **GitHub Repo:** [https://github.com/Zheel-Gupta/local-service-booking-platform]
 
 ## 📸 Screenshots
