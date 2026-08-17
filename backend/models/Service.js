@@ -39,22 +39,39 @@ const Service = sequelize.define('Service', {
     allowNull: true,
   },
   price: {
+    // Now optional — a service can use subServices instead
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
+    allowNull: true,
     validate: {
-      notNull: { msg: 'Price is required' },
-      isDecimal: { msg: 'Price must be a valid number' },
-      min: { args: [0], msg: 'Price must be greater than or equal to 0' },
+      isDecimalIfPresent(value) {
+        if (value !== null && value !== undefined && value !== '') {
+          if (isNaN(parseFloat(value))) {
+            throw new Error('Price must be a valid number');
+          }
+          if (parseFloat(value) < 0) {
+            throw new Error('Price must be greater than or equal to 0');
+          }
+        }
+      },
     },
   },
   duration: {
     type: DataTypes.INTEGER,
     allowNull: true,
-    comment: 'Duration in minutes',
+    comment: 'Duration in minutes (for single-price services)',
     validate: {
       isInt: { msg: 'Duration must be an integer (in minutes)' },
       min: { args: [1], msg: 'Duration must be at least 1 minute' },
     },
+  },
+  // ── Sub-Services (optional) ───────────────────────────────────────────────
+  // Stores an array of: [{ name: string, price: number, duration: number }]
+  // If present and non-empty, takes priority over the single `price` field.
+  subServices: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Array of sub-service objects: [{ name, price, duration }]',
   },
 }, {
   timestamps: true,

@@ -8,12 +8,55 @@ const { Op } = require('sequelize');
  */
 const createService = async (req, res, next) => {
   try {
-    const { title, category, description, price, duration } = req.body;
+    const { title, category, description, price, duration, subServices } = req.body;
 
-    if (!title || !category || price === undefined || price === null) {
+    // Basic required fields
+    if (!title || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide title, category, and price for the service',
+        message: 'Please provide title and category for the service',
+      });
+    }
+
+    // Parse and validate subServices if provided
+    let parsedSubServices = null;
+    if (subServices && Array.isArray(subServices) && subServices.length > 0) {
+      for (let i = 0; i < subServices.length; i++) {
+        const ss = subServices[i];
+        if (!ss.name || ss.name.toString().trim() === '') {
+          return res.status(400).json({
+            success: false,
+            message: `Sub-service #${i + 1} is missing a name`,
+          });
+        }
+        if (ss.price === undefined || ss.price === null || ss.price === '' || isNaN(parseFloat(ss.price))) {
+          return res.status(400).json({
+            success: false,
+            message: `Sub-service #${i + 1} ("${ss.name}") is missing a valid price`,
+          });
+        }
+        if (parseFloat(ss.price) < 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Sub-service #${i + 1} ("${ss.name}") price cannot be negative`,
+          });
+        }
+      }
+      parsedSubServices = subServices.map((ss) => ({
+        name: ss.name.toString().trim(),
+        price: parseFloat(parseFloat(ss.price).toFixed(2)),
+        duration: ss.duration ? parseInt(ss.duration, 10) : null,
+      }));
+    }
+
+    // Must provide either a base price OR at least one sub-service
+    const hasBasePrice = price !== undefined && price !== null && price !== '';
+    const hasSubServices = parsedSubServices && parsedSubServices.length > 0;
+
+    if (!hasBasePrice && !hasSubServices) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide either a base price or at least one sub-service with a price',
       });
     }
 
@@ -22,8 +65,9 @@ const createService = async (req, res, next) => {
       title,
       category,
       description,
-      price,
+      price: hasBasePrice ? price : null,
       duration: duration || null,
+      subServices: parsedSubServices,
     });
 
     res.status(201).json({
@@ -71,7 +115,7 @@ const getAllServices = async (req, res, next) => {
       ];
     }
 
-    // Price range filter using Op.gte / Op.lte
+    // Price range filter using Op.gte / Op.lte (only applies to base price)
     if (minPrice !== undefined || maxPrice !== undefined) {
       whereClause.price = {};
       if (minPrice !== undefined) {
@@ -227,13 +271,58 @@ const updateService = async (req, res, next) => {
       });
     }
 
-    const { title, category, description, price, duration } = req.body;
+    const { title, category, description, price, duration, subServices } = req.body;
 
     if (title !== undefined) service.title = title;
     if (category !== undefined) service.category = category;
     if (description !== undefined) service.description = description;
-    if (price !== undefined) service.price = price;
     if (duration !== undefined) service.duration = duration;
+
+    // Handle subServices update
+    if (subServices !== undefined) {
+      if (Array.isArray(subServices) && subServices.length > 0) {
+        // Validate each sub-service entry
+        for (let i = 0; i < subServices.length; i++) {
+          const ss = subServices[i];
+          if (!ss.name || ss.name.toString().trim() === '') {
+            return res.status(400).json({
+              success: false,
+              message: `Sub-service #${i + 1} is missing a name`,
+            });
+          }
+          if (ss.price === undefined || ss.price === null || ss.price === '' || isNaN(parseFloat(ss.price))) {
+            return res.status(400).json({
+              success: false,
+              message: `Sub-service #${i + 1} ("${ss.name}") is missing a valid price`,
+            });
+          }
+        }
+        service.subServices = subServices.map((ss) => ({
+          name: ss.name.toString().trim(),
+          price: parseFloat(parseFloat(ss.price).toFixed(2)),
+          duration: ss.duration ? parseInt(ss.duration, 10) : null,
+        }));
+      } else {
+        // Empty array or null = clear sub-services
+        service.subServices = null;
+      }
+    }
+
+    // Handle price update
+    if (price !== undefined) {
+      service.price = (price === null || price === '') ? null : price;
+    }
+
+    // After updates, ensure the service still has either a price or sub-services
+    const hasBasePrice = service.price !== undefined && service.price !== null && service.price !== '';
+    const hasSubServices = service.subServices && Array.isArray(service.subServices) && service.subServices.length > 0;
+
+    if (!hasBasePrice && !hasSubServices) {
+      return res.status(400).json({
+        success: false,
+        message: 'Service must have either a base price or at least one sub-service',
+      });
+    }
 
     await service.save();
 

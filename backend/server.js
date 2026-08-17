@@ -55,10 +55,9 @@ const startServer = async () => {
     // Authenticate Database connection
     await connectDB();
 
-    // Sync Sequelize models with DB schema
-    // In production, database migrations should be used instead of sync({ alter: true })
-    await sequelize.sync();
-    console.log('Database models synchronized successfully.');
+    // Sync Sequelize models with DB schema (alter: true automatically adds missing columns)
+    await sequelize.sync({ alter: true });
+    console.log('Database models synchronized successfully with schema alterations.');
 
     app.listen(PORT, () => {
       console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

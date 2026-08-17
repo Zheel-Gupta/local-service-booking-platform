@@ -8,7 +8,8 @@ import { getProviderReviews, getProviderAverageRating } from '../../services/rev
 import { createBooking } from '../../services/bookingService';
 import {
   ArrowLeft, Clock, Star, BadgeCheck, Calendar, Shield,
-  CheckCircle2, AlertCircle, X, User, ThumbsUp, Briefcase
+  CheckCircle2, AlertCircle, X, User, ThumbsUp, Briefcase,
+  Layers, DollarSign, Tag
 } from 'lucide-react';
 
 /* ─── PLACEHOLDER CONSTANTS (Easily swap with real image URLs) ──────────────── */
@@ -61,6 +62,14 @@ function ServiceDetails() {
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState('');
 
+  // ── Sub-service selection state ─────────────────────────────────────────────
+  const [selectedSubService, setSelectedSubService] = useState(null); // { name, price, duration }
+
+  // ── Coupon state (checks localStorage key 'appliedCoupon' and fallback 'claimedCoupon') ──
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    return localStorage.getItem('appliedCoupon') || localStorage.getItem('claimedCoupon') || '';
+  });
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -89,17 +98,69 @@ function ServiceDetails() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Derived: does this service use sub-services?
+  const hasSubServices =
+    service?.subServices &&
+    Array.isArray(service.subServices) &&
+    service.subServices.length > 0;
+
+  // Raw price before discount
+  const rawPrice = hasSubServices
+    ? selectedSubService
+      ? Number(selectedSubService.price)
+      : null
+    : service?.price !== null && service?.price !== undefined
+      ? Number(service.price)
+      : null;
+
+  // ── Discount calculations ──────────────────────────────────────────────────
+  const isCouponValid = appliedCoupon === 'FIRST50' && rawPrice !== null && rawPrice > 0;
+  const discountRate = isCouponValid ? 0.5 : 0;
+  const discountAmount = isCouponValid ? rawPrice * discountRate : 0;
+  const finalPrice = rawPrice !== null ? (isCouponValid ? rawPrice - discountAmount : rawPrice) : null;
+
+  const handleOpenBookingModal = () => {
+    if (hasSubServices && !selectedSubService) {
+      // Scroll to sub-service section and highlight instead of opening modal
+      document.getElementById('sub-service-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setBookingError('');
+    setBookingSuccess('');
+    setIsModalOpen(true);
+  };
+
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
     if (!bookingDate || !timeSlot) {
       setBookingError('Please select both a date and a time slot.');
       return;
     }
+    if (hasSubServices && !selectedSubService) {
+      setBookingError('Please select a sub-service first.');
+      return;
+    }
     setBookingLoading(true);
     setBookingError('');
     setBookingSuccess('');
     try {
-      await createBooking({ serviceId: service.id, bookingDate, timeSlot });
+      const priceToSave = finalPrice !== null ? finalPrice : rawPrice;
+
+      await createBooking({
+        serviceId: service.id,
+        bookingDate,
+        timeSlot,
+        subServiceName: hasSubServices && selectedSubService ? selectedSubService.name : undefined,
+        subServicePrice: priceToSave !== null && priceToSave !== undefined ? priceToSave : undefined,
+      });
+
+      // Clear coupon from localStorage after successful booking
+      if (isCouponValid) {
+        localStorage.removeItem('appliedCoupon');
+        localStorage.removeItem('claimedCoupon');
+        setAppliedCoupon('');
+      }
+
       setBookingSuccess('Booking submitted! Redirecting...');
       setTimeout(() => { setIsModalOpen(false); navigate('/customer/my-bookings'); }, 1800);
     } catch (err) {
@@ -219,40 +280,103 @@ function ServiceDetails() {
               <div>
                 <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-2">About</h3>
                 <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
-                  {service.description || 'I am a certified electrician with over 6 years of experience in residential and commercial electrical services. I ensure quality work and customer satisfaction.'}
+                  {service.description || 'I am a certified professional with extensive experience. I ensure quality work and customer satisfaction.'}
                 </p>
               </div>
 
-              {/* Services Tags */}
-              <div>
-                <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">Services Offered</h3>
-                <div className="flex flex-wrap gap-2">
-                  {['Electrical Wiring', 'Lighting Installation', 'Circuit Repair', 'Switch & Socket Repair', 'Fan Installation', 'Electrical Inspection'].map((s) => (
-                    <span key={s} className="bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-xl">
-                      {s}
-                    </span>
-                  ))}
+              {/* Sub-Services Selection (if applicable) */}
+              {hasSubServices && (
+                <div id="sub-service-section">
+                  <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-600" />
+                    Select a Service
+                    <span className="text-rose-500 text-xs font-bold">*</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {service.subServices.map((ss, i) => {
+                      const isSelected = selectedSubService?.name === ss.name;
+                      return (
+                        <button
+                          key={i}
+                          id={`sub-service-option-${i}`}
+                          type="button"
+                          onClick={() => setSelectedSubService(ss)}
+                          className={`group text-left p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-50 shadow-md shadow-indigo-100'
+                              : 'border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50/50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-extrabold leading-tight mb-1 ${isSelected ? 'text-indigo-700' : 'text-gray-900'}`}>
+                                {ss.name}
+                              </p>
+                              {ss.duration && (
+                                <p className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                                  <Clock className="w-3 h-3" />
+                                  {ss.duration} min
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className={`text-base font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-900'}`}>
+                                ${Number(ss.price).toFixed(2)}
+                              </span>
+                              {/* Radio indicator */}
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition ${
+                                isSelected ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300 bg-white group-hover:border-indigo-400'
+                              }`}>
+                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!selectedSubService && (
+                    <p className="text-xs text-gray-400 font-medium mt-2">
+                      ↑ Please select one of the above options before booking.
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {/* Pricing Cards Row */}
-              <div>
-                <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">Pricing</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
-                    <p className="text-xs font-bold text-indigo-600">Service Call</p>
-                    <p className="text-xl font-extrabold text-gray-900 mt-1">$25</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
-                    <p className="text-xs font-bold text-gray-500">Per Hour</p>
-                    <p className="text-xl font-extrabold text-gray-900 mt-1">$25 - $40</p>
-                  </div>
-                  <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
-                    <p className="text-xs font-bold text-gray-500">Emergency Call</p>
-                    <p className="text-xl font-extrabold text-gray-900 mt-1">$50</p>
+              {/* Services Tags (shown only for single-price services) */}
+              {!hasSubServices && (
+                <div>
+                  <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">Services Offered</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {['Electrical Wiring', 'Lighting Installation', 'Circuit Repair', 'Switch & Socket Repair', 'Fan Installation', 'Electrical Inspection'].map((s) => (
+                      <span key={s} className="bg-gray-50 text-gray-700 border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-xl">
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Pricing Cards Row (single-price mode only) */}
+              {!hasSubServices && (
+                <div>
+                  <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider mb-3">Pricing</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
+                      <p className="text-xs font-bold text-indigo-600">Service Call</p>
+                      <p className="text-xl font-extrabold text-gray-900 mt-1">${service.price || '25'}</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
+                      <p className="text-xs font-bold text-gray-500">Per Hour</p>
+                      <p className="text-xl font-extrabold text-gray-900 mt-1">$25 - $40</p>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-center">
+                      <p className="text-xs font-bold text-gray-500">Emergency Call</p>
+                      <p className="text-xl font-extrabold text-gray-900 mt-1">$50</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Customer Reviews Section */}
@@ -328,6 +452,33 @@ function ServiceDetails() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl border border-indigo-100 shadow-lg p-6 sticky top-20">
               
+              {/* Selected sub-service summary (shows when one is selected) */}
+              {hasSubServices && selectedSubService && (
+                <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-extrabold text-indigo-700">{selectedSubService.name}</p>
+                    {selectedSubService.duration && (
+                      <p className="text-[11px] text-indigo-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" /> {selectedSubService.duration} min
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-base font-extrabold text-indigo-700">
+                    ${Number(selectedSubService.price).toFixed(2)}
+                  </span>
+                </div>
+              )}
+
+              {/* Prompt to select sub-service (when service has subs but none selected) */}
+              {hasSubServices && !selectedSubService && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 shrink-0" />
+                    Please select a sub-service from the list on the left first.
+                  </p>
+                </div>
+              )}
+
               <h3 className="text-base font-extrabold text-gray-900 mb-4">Available Slots</h3>
 
               {/* Day Tabs */}
@@ -386,13 +537,47 @@ function ServiceDetails() {
                 />
               </div>
 
+              {/* Price display / Coupon Discount Breakdown */}
+              {rawPrice !== null && (
+                isCouponValid ? (
+                  <div className="mb-4 p-3.5 bg-gradient-to-br from-indigo-50/90 via-purple-50/50 to-pink-50/30 border border-indigo-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                      <span>Original Price:</span>
+                      <span className="line-through text-gray-400 font-bold">${rawPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-600">
+                      <span className="flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5" />
+                        Coupon <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-extrabold text-[10px] tracking-wide">FIRST50</span> Applied:
+                      </span>
+                      <span>-50% (-${discountAmount.toFixed(2)})</span>
+                    </div>
+                    <div className="pt-2 border-t border-indigo-100/80 flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-gray-900 uppercase tracking-wider">Final Price:</span>
+                      <span className="text-xl font-black text-indigo-700">${finalPrice.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <span className="text-xs text-gray-500 font-medium">Total Price</span>
+                    <span className="text-xl font-extrabold text-gray-900">${rawPrice.toFixed(2)}</span>
+                  </div>
+                )
+              )}
+
               {/* CTA Button */}
               <button
                 id="open-booking-modal-btn"
-                onClick={() => { setBookingError(''); setBookingSuccess(''); setIsModalOpen(true); }}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3.5 rounded-xl transition shadow-lg shadow-indigo-200 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                onClick={handleOpenBookingModal}
+                disabled={hasSubServices && !selectedSubService}
+                className={`w-full font-extrabold py-3.5 rounded-xl transition shadow-lg text-sm flex items-center justify-center gap-2 cursor-pointer ${
+                  hasSubServices && !selectedSubService
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                }`}
               >
-                <Calendar className="w-4 h-4" /> Book Appointment
+                <Calendar className="w-4 h-4" />
+                {hasSubServices && !selectedSubService ? 'Select a Service First' : 'Book Appointment'}
               </button>
 
               <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-gray-400 font-medium">
@@ -418,9 +603,47 @@ function ServiceDetails() {
             </button>
 
             <h3 className="text-xl font-extrabold text-gray-900 mb-0.5">Confirm Booking</h3>
-            <p className="text-gray-500 text-xs mb-5 font-medium">
-              {service.title} — <span className="text-indigo-600 font-extrabold">${service.price}</span>
-            </p>
+
+            {/* Service + sub-service summary + price breakdown */}
+            <div className="mb-5 p-4 bg-gray-50 border border-gray-100 rounded-2xl">
+              <p className="text-gray-600 text-xs font-medium">
+                {service.title}
+                {hasSubServices && selectedSubService && (
+                  <>
+                    {' '}›{' '}
+                    <span className="text-indigo-600 font-extrabold">{selectedSubService.name}</span>
+                  </>
+                )}
+              </p>
+
+              {isCouponValid ? (
+                <div className="mt-2.5 pt-2.5 border-t border-gray-200 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-gray-500 font-medium">
+                    <span>Original Price:</span>
+                    <span className="line-through">${rawPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-bold text-emerald-600">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3 h-3" /> Coupon FIRST50 (-50%):
+                    </span>
+                    <span>-${discountAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="pt-1.5 border-t border-gray-200 flex items-center justify-between text-indigo-600">
+                    <span className="font-extrabold text-gray-900">Final Total:</span>
+                    <span className="text-lg font-black">${finalPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg font-extrabold text-indigo-600 mt-1">
+                  ${rawPrice !== null ? rawPrice.toFixed(2) : '0.00'}
+                  {hasSubServices && selectedSubService?.duration && (
+                    <span className="text-sm font-normal text-gray-500 ml-2 inline-flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> {selectedSubService.duration} min
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
 
             {bookingError && (
               <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-xl mb-4 font-medium flex items-center gap-2">

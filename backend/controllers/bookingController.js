@@ -8,7 +8,7 @@ const { Op } = require('sequelize');
  */
 const createBooking = async (req, res, next) => {
   try {
-    const { serviceId, bookingDate, timeSlot } = req.body;
+    const { serviceId, bookingDate, timeSlot, subServiceName, subServicePrice } = req.body;
 
     if (!serviceId || !bookingDate || !timeSlot) {
       return res.status(400).json({
@@ -26,7 +26,43 @@ const createBooking = async (req, res, next) => {
       });
     }
 
-    // 2. Conflict prevention check:
+    // 2. If the service has subServices, require a sub-service selection
+    const hasSubServices =
+      service.subServices &&
+      Array.isArray(service.subServices) &&
+      service.subServices.length > 0;
+
+    if (hasSubServices) {
+      if (!subServiceName || subServiceName.toString().trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'This service requires you to select a sub-service before booking',
+        });
+      }
+      if (
+        subServicePrice === undefined ||
+        subServicePrice === null ||
+        subServicePrice === '' ||
+        isNaN(parseFloat(subServicePrice))
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide a valid sub-service price',
+        });
+      }
+      // Validate that the selected sub-service actually exists in the service
+      const validSubService = service.subServices.find(
+        (ss) => ss.name === subServiceName.toString().trim()
+      );
+      if (!validSubService) {
+        return res.status(400).json({
+          success: false,
+          message: `Sub-service "${subServiceName}" does not exist for this service`,
+        });
+      }
+    }
+
+    // 3. Conflict prevention check:
     // Check if the provider already has a booking for the same date & time slot
     // that is either 'pending' or 'confirmed'
     const existingBooking = await Booking.findOne({
@@ -47,7 +83,7 @@ const createBooking = async (req, res, next) => {
       });
     }
 
-    // 3. Create the booking with providerId automatically resolved from service
+    // 4. Create the booking with providerId automatically resolved from service
     const booking = await Booking.create({
       customerId: req.user.id,
       providerId: service.providerId,
@@ -55,6 +91,8 @@ const createBooking = async (req, res, next) => {
       bookingDate,
       timeSlot,
       status: 'pending',
+      subServiceName: hasSubServices && subServiceName ? subServiceName.toString().trim() : null,
+      subServicePrice: subServicePrice !== undefined && subServicePrice !== null && subServicePrice !== '' ? parseFloat(subServicePrice) : null,
     });
 
     // Fetch complete booking with associated service and provider info for response

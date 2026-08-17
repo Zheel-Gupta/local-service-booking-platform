@@ -232,9 +232,22 @@ function MyBookings() {
                         </span>
                       </div>
 
-                      <p className="text-xs font-semibold text-indigo-600 mb-2">
+                      <p className="text-xs font-semibold text-indigo-600 mb-1">
                         {booking.service?.title || `Electrical Wiring`}
                       </p>
+
+                      {/* Sub-service badge (shown when a specific sub-service was booked) */}
+                      {booking.subServiceName && (
+                        <p className="text-xs font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 mb-2">
+                          <span className="text-indigo-400">↳</span>
+                          {booking.subServiceName}
+                          {booking.subServicePrice && (
+                            <span className="text-indigo-600 ml-0.5">
+                              — ${Number(booking.subServicePrice).toFixed(2)}
+                            </span>
+                          )}
+                        </p>
+                      )}
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
                         <span className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-100">
@@ -252,7 +265,11 @@ function MyBookings() {
                   {/* Right Price & Actions */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-0 border-gray-100 gap-3">
                     <div className="text-right">
-                      <span className="text-xl font-extrabold text-gray-900">${booking.service?.price || '32.50'}</span>
+                      <span className="text-xl font-extrabold text-gray-900">
+                        ${Number(
+                          booking.subServicePrice ?? booking.service?.price ?? '32.50'
+                        ).toFixed(2)}
+                      </span>
                     </div>
 
                     <div>

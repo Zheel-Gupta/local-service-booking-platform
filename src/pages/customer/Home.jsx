@@ -4,12 +4,13 @@ import Navbar from '../../components/common/Navbar';
 import Footer from '../../components/common/Footer';
 import Loader from '../../components/common/Loader';
 import { getAllServices } from '../../services/serviceService';
+import { useAuth } from '../../context/AuthContext';
 import {
   Search, MapPin, Zap, Droplet, Paintbrush, Sparkles, Scissors,
   Wind, Hammer, BookOpen, Sprout, Star, BadgeCheck,
   SlidersHorizontal, RotateCcw, ArrowRight, ChevronLeft, ChevronRight,
   Clock, Shield, ThumbsUp, Heart, CheckCircle2, DollarSign, Headphones,
-  Smile, ChevronDown, Check, Locate, Loader2
+  Smile, ChevronDown, Check, Locate, Loader2, Tag, X
 } from 'lucide-react';
 
 /* ─── PLACEHOLDER CONSTANTS (Easily swap with real image URLs) ──────────────── */
@@ -127,6 +128,30 @@ function StarRating({ rating = 4.8, size = 'sm' }) {
 
 function Home() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // ─── Coupon toast state ────────────────────────────────────────────────────
+  const [couponToast, setCouponToast] = useState(null); // null | 'success' | 'already'
+  const couponTimerRef = useRef(null);
+
+  const handleClaimOffer = () => {
+    if (!isAuthenticated) {
+      navigate('/register');
+      return;
+    }
+    const existing = localStorage.getItem('appliedCoupon');
+    if (existing === 'FIRST50') {
+      setCouponToast('already');
+    } else {
+      localStorage.setItem('appliedCoupon', 'FIRST50');
+      setCouponToast('success');
+    }
+    if (couponTimerRef.current) clearTimeout(couponTimerRef.current);
+    couponTimerRef.current = setTimeout(() => setCouponToast(null), 4000);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (couponTimerRef.current) clearTimeout(couponTimerRef.current); }, []);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [minPrice, setMinPrice] = useState('');
@@ -754,20 +779,94 @@ function Home() {
               </span>
               <h3 className="text-3xl font-extrabold text-white mb-2">50% OFF on Your First Booking</h3>
               <p className="text-indigo-200 text-sm mb-6">Use code: <span className="font-extrabold text-yellow-300 text-base">FIRST50</span></p>
-              <button className="bg-white hover:bg-gray-50 text-indigo-600 font-extrabold text-sm px-6 py-3 rounded-xl transition shadow-lg">
+              <button
+                id="claim-offer-btn"
+                onClick={handleClaimOffer}
+                className="bg-white hover:bg-yellow-50 text-indigo-600 font-extrabold text-sm px-6 py-3 rounded-xl transition shadow-lg hover:shadow-yellow-200/50 active:scale-95"
+              >
                 Claim Offer
               </button>
             </div>
             
-            <div className="relative z-10 shrink-0">
+            {/* ── Right-side visual: Unsplash image + overlay badge ── */}
+            <div className="relative z-10 shrink-0 w-64 h-44 rounded-2xl overflow-hidden shadow-2xl border-4 border-white/20">
+              {/* Background image */}
               <img
-                src={PROMO_BANNER_PLACEHOLDER}
-                alt="Promo Illustration Placeholder"
-                className="w-64 h-40 object-cover rounded-2xl shadow-2xl border-4 border-white/20"
+                src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=600&q=80"
+                alt="Home service discount"
+                className="w-full h-full object-cover"
               />
+              {/* Dark overlay for readability */}
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-black/70" />
+
+              {/* Discount tag icon + text overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                <div className="bg-yellow-400/20 border-2 border-yellow-400/60 rounded-full p-3 backdrop-blur-sm">
+                  <Tag className="w-8 h-8 text-yellow-300" strokeWidth={2.5} />
+                </div>
+                <p className="text-white text-5xl font-black tracking-tight leading-none drop-shadow-lg">50%</p>
+                <p className="text-yellow-300 text-sm font-extrabold uppercase tracking-widest drop-shadow">OFF</p>
+                <span className="mt-1 text-white/70 text-[11px] font-semibold bg-white/10 px-3 py-0.5 rounded-full">
+                  First Booking
+                </span>
+              </div>
+
+              {/* Decorative glow rings */}
+              <div className="absolute -bottom-4 -right-4 w-20 h-20 rounded-full bg-yellow-400/20 blur-xl" />
+              <div className="absolute -top-4 -left-4 w-16 h-16 rounded-full bg-indigo-400/20 blur-xl" />
             </div>
           </div>
         </section>
+
+        {/* ─── COUPON TOAST ──────────────────────────────────────────── */}
+        {couponToast && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold"
+            style={{
+              background: couponToast === 'success'
+                ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
+                : 'linear-gradient(135deg,#d97706,#b45309)',
+              color: '#fff',
+              minWidth: '320px',
+              animation: 'slideUpFadeIn 0.35s ease-out',
+            }}
+          >
+            {couponToast === 'success' ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-extrabold text-white">Coupon Applied! 🎉</p>
+                  <p className="text-white/80 text-xs font-medium">
+                    <span className="text-yellow-300 font-black">FIRST50</span> will be used at checkout.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Tag className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-extrabold text-white">Already Applied</p>
+                  <p className="text-white/80 text-xs font-medium">
+                    Coupon <span className="text-yellow-300 font-black">FIRST50</span> is already saved for checkout.
+                  </p>
+                </div>
+              </>
+            )}
+            <button
+              onClick={() => setCouponToast(null)}
+              className="ml-2 w-6 h-6 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition shrink-0"
+              aria-label="Dismiss coupon toast"
+            >
+              <X className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
+        )}
 
         {/* ─── HOW IT WORKS ─────────────────────────────────────────── */}
         <section className="mb-14">

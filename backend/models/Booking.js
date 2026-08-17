@@ -72,6 +72,20 @@ const Booking = sequelize.define('Booking', {
       },
     },
   },
+  // ── Sub-Service Selection (optional) ─────────────────────────────────────
+  // Captures which specific sub-service was booked (when service has subServices)
+  subServiceName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Name of the specific sub-service selected at booking time',
+  },
+  subServicePrice: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Price of the specific sub-service selected at booking time',
+  },
 }, {
   timestamps: true,
   tableName: 'bookings',
